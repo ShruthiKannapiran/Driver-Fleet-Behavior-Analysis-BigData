@@ -1,0 +1,116 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2761
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww28120\viewh17240\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 # Driver Risk Classification\
+# dataset = pandas.DataFrame(driverid, event, totmiles, MPG)\
+# dataset = dataset.drop_duplicates()\
+\
+import pandas as pd\
+import seaborn as sns\
+import matplotlib.pyplot as plt\
+from sklearn.preprocessing import StandardScaler\
+from sklearn.cluster import KMeans\
+\
+# Step 1: Prepare data\
+df = dataset.dropna()\
+df = df.groupby('driverid', as_index=False).agg(\{\
+    'events': 'sum',\
+    'totmiles': 'sum',\
+    'MPG': 'mean'\
+\})\
+\
+# Step 2: Normalize features\
+features = ['events', 'totmiles', 'MPG']\
+scaler = StandardScaler()\
+X_scaled = scaler.fit_transform(df[features])\
+\
+# Step 3: KMeans Clustering (3 categories)\
+kmeans = KMeans(n_clusters=3, random_state=42)\
+df['RiskGroup'] = kmeans.fit_predict(X_scaled)\
+\
+# Step 4: Label the clusters (0,1,2 \uc0\u8594  Low, Med, High)\
+# Based on average event count per cluster\
+cluster_avg = df.groupby('RiskGroup')['events'].mean().sort_values()\
+risk_labels = \{idx: label for idx, label in zip(cluster_avg.index, ['Low Risk', 'Medium Risk', 'High Risk'])\}\
+df['RiskCategory'] = df['RiskGroup'].map(risk_labels)\
+\
+# Step 5: Plot\
+plt.figure(figsize=(10, 6))\
+sns.scatterplot(data=df, x='totmiles', y='MPG', hue='RiskCategory', palette='Set2', s=100)\
+plt.xlabel("Total Miles Driven")\
+plt.ylabel("Average MPG")\
+plt.title("Driver Risk Classification Based on Clustering")\
+plt.grid(True)\
+plt.legend(title='Risk Group')\
+plt.tight_layout()\
+plt.show()\
+\
+\
+\
+\
+\
+# Maintenance risk prediction by Truck model\
+\
+# dataset = pandas.DataFrame(OverspeedFlag, truckid, idling_ind, MaintenanceRisk, MPG)\
+# dataset = dataset.drop_duplicates()\
+\
+import pandas as pd\
+import seaborn as sns\
+import matplotlib.pyplot as plt\
+from sklearn.ensemble import RandomForestClassifier\
+from sklearn.preprocessing import StandardScaler\
+\
+# Step 1: Required columns\
+required_cols = ['model', 'riskfactor', 'OverspeedFlag', 'idling_ind', 'MPG']\
+df = dataset[required_cols].dropna()\
+\
+# Step 2: Binary label for high maintenance risk\
+df['MaintenanceRisk'] = (df['riskfactor'] >= 7).astype(int)\
+\
+# Step 3: Features and target\
+X = df[['OverspeedFlag', 'idling_ind', 'MPG']]\
+y = df['MaintenanceRisk']\
+\
+# Step 4: Normalize input\
+scaler = StandardScaler()\
+X_scaled = scaler.fit_transform(X)\
+\
+# Step 5: Handle fallback case if no variety\
+if len(set(y)) < 2:\
+    plt.figure(figsize=(6, 3))\
+    plt.text(0.5, 0.5, "Only one risk class present.\\nCannot build predictive model.",\
+             ha='center', va='center', fontsize=12)\
+    plt.axis('off')\
+    plt.tight_layout()\
+    plt.show()\
+else:\
+    # Step 6: Train model and predict\
+    model = RandomForestClassifier(n_estimators=100, random_state=42)\
+    model.fit(X_scaled, y)\
+    df['RiskProbability'] = model.predict_proba(X_scaled)[:, 1]\
+\
+    # Step 7: Compute average risk per truck model\
+    model_avg = df.groupby('model', as_index=False)['RiskProbability'].mean()\
+    model_avg = model_avg.sort_values(by='RiskProbability', ascending=False)\
+\
+    # Step 8: Bar plot\
+    plt.figure(figsize=(10, 6))\
+    ax = sns.barplot(data=model_avg, x='RiskProbability', y='model', palette='Reds_r')\
+\
+    # Add data labels\
+    for i, (val, label) in enumerate(zip(model_avg['RiskProbability'], model_avg['model'])):\
+        ax.text(val + 0.01, i, f"\{val:.2f\}", va='center', fontsize=9)\
+\
+    # Format plot\
+    plt.xlabel("Average Predicted Maintenance Risk")\
+    plt.ylabel("Truck Model")\
+    plt.title("Average Predicted Maintenance Risk by Truck Model")\
+    plt.xlim(0, 1.15)\
+    plt.grid(axis='x', linestyle='--', alpha=0.4)\
+    plt.tight_layout()\
+\
+    plt.show()}
